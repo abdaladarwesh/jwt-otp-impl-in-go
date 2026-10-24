@@ -21,6 +21,7 @@ func handleProtected(w http.ResponseWriter, req *http.Request){
 
 
 func main() {
+	utils.InitDotEnv()
 	utils.InitRedis()
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/login", handlers.HandleLogin)

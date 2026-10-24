@@ -67,6 +67,13 @@ func getSecretKey() ([]byte, error) {
 	return []byte(os.Getenv("SECRET_JWT_KEY")), nil
 }
 
+func InitDotEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func ExtractToken(tokenStr string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

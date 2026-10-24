@@ -176,6 +176,14 @@ func ValidateOTPHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request expecting 'otp'", http.StatusBadRequest)
 		return
 	}
+
+	attemptsKey := fmt.Sprintf("otp:attempts:%s", request.Email)
+	attempts, err := utils.Rdb.Get(utils.Ctx, attemptsKey).Int()
+	if attempts >= 3 && err == nil {
+		http.Error(w, "Too many failed attempts. Please request a new OTP.", http.StatusTooManyRequests)
+		return
+	}
+
 	otpKey := fmt.Sprintf("otp:%s", request.Email)
 	res, err := utils.Rdb.Get(utils.Ctx, otpKey).Result()
 	if err != nil {
@@ -184,11 +192,16 @@ func ValidateOTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if res != request.OTP {
-		http.Error(w, "Expired OTP", http.StatusUnauthorized)
+		pipe := utils.Rdb.Pipeline()
+		pipe.Incr(utils.Ctx, attemptsKey)
+		pipe.Expire(utils.Ctx, attemptsKey, 3*time.Minute)
+		_, _ = pipe.Exec(utils.Ctx)
+
+		http.Error(w, "Invalid OTP", http.StatusUnauthorized)
 		return
 	}
 
-	utils.Rdb.Del(utils.Ctx, otpKey)
+	utils.Rdb.Del(utils.Ctx, otpKey, attemptsKey)
 	accessToken, refreshToken, err := generateTokens(1)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
